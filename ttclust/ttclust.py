@@ -350,6 +350,9 @@ def parseArg():
     arguments.add_argument('-sr', '--select_rmsd', help="selection syntax for "
                                                         " RMSD (default : backbone). Don't forget to add QUOTES "
                                                         "besite this selection string.", default="backbone")
+    arguments.add_argument('-tc', '--traj_write_cutoff', help="Write a trajectory of frames within a cluster " 
+                                                              "if the trajectory size exceeds this number (default: 0) " 
+                                                              "means don't write any cluster trajectories", default=0, type=int)
 
     # Clustering arguments
     arguments.add_argument('-m', '--method', help="method for clustering : single "
@@ -381,6 +384,9 @@ def parseArg():
 
     if (args["autoclust"] == True) and (args["ngroup"] == None) and (args["cutoff"] == None):
         args["ngroup"] = "auto"
+
+    if args["traj_write_cutoff"] > 0:               
+        print("Writing trajectories with more than {} frames".format(args["traj_write_cutoff"]))
 
     return (args)
 
@@ -784,6 +790,21 @@ def write_representative_frame(traj, cluster, logname):
                                                      frame + 1,  # +1 to get the 1 index based frame
                                                      size))
 
+def write_representative_trajectory(traj, cluster, logname):
+    """
+    DESCRIPTION
+    Writes all frames in a cluster to an xtc file
+    Args:
+        traj (mdtraj.trajectory): trajectory
+        cluster (Cluster): a Cluster object
+        logname (string): output logfile
+    """
+    cluster_frames = cluster.frames
+    cluster_num = cluster.id
+    size = cluster.size
+    traj[cluster_frames].save_xtc("{}/C{}-s{}.xtc".format(logname,
+                                                     cluster_num,
+                                                     size))
 
 def get_cmap(num_cluster):
     """
@@ -1274,6 +1295,10 @@ def Cluster_analysis_call(args):
         printScreenLogfile("    spread  : {0:.2f} ".format(cluster.spread))
         printScreenLogfile("    Frames : {} ".format(str([x + 1 for x in cluster.frames])))
         write_representative_frame(traj, cluster, logname)
+        
+        if args["traj_write_cutoff"] > 0:
+            if cluster.size > args["traj_write_cutoff"]:
+                write_representative_trajectory(traj, cluster, logname)
 
     RMSD_matrix = get_RMSD_cross_cluster(clusters_list, distances, logname)
 
